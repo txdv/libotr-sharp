@@ -4,7 +4,15 @@ using System.IO;
 
 namespace Test
 {
-    unsafe class MainClass
+    static class ClasExtensions
+    {
+        public static string MessageReceiving(this UserState us, InjectMessageEventArgs args)
+        {
+            return us.MessageReceiving(args.Recipient, args.Protocol, args.AccountName, args.Message);
+        }
+    }
+
+    class MainClass
     {
         static void GenerateKey(UserState userState, string accountname, string protocol, string filename)
         {
@@ -31,12 +39,9 @@ namespace Test
             us2.ReadFingerprints("us2.fingerprints");
 
             var message1 = us1.MessageSending("us1", protocol, "us2", "");
-            us2.InjectMessage += (sender, e) => {
-                us1.InjectMessage += (sender2, e2) => {
-                    us2.MessageReceiving("us2", protocol, "us1", e2.Message);
-                };
-                us1.MessageReceiving("us1", protocol, "us2", e.Message);
-            };
+
+            us1.InjectMessage += (sender, events) => us2.MessageReceiving(events);
+            us2.InjectMessage += (sender, events) => us1.MessageReceiving(events);
             us2.MessageReceiving("us2", protocol, "us1", message1);
 
             string msg;
