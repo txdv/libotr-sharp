@@ -5,6 +5,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "libotr-sharp", "libotr-shar
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "libotr-sharp-tests", "libotr-sharp-tests.csproj", "{46C83331-9DD6-47B6-81B4-86E5FD47F0AF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{C7845037-7E66-41DE-9CE8-488C21AA293B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,6 +21,10 @@ Global
 		{5C872088-6863-414F-9187-467DCF425796}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5C872088-6863-414F-9187-467DCF425796}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5C872088-6863-414F-9187-467DCF425796}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7845037-7E66-41DE-9CE8-488C21AA293B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7845037-7E66-41DE-9CE8-488C21AA293B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7845037-7E66-41DE-9CE8-488C21AA293B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7845037-7E66-41DE-9CE8-488C21AA293B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = libotr-sharp.csproj

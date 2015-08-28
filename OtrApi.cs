@@ -3,290 +3,328 @@ using System.Runtime.InteropServices;
 
 namespace Otr
 {
-	public static class OtrApi
-	{
-		struct OtrlMessageAppOps
-		{
-            //OtrlPolicy (*policy)(void *opdata, ConnContext *context);
-            //// <summary>
-            /// Return the OTR policy for the given context.
-            /// </summary>
-            IntPtr Policy;
+    public enum InstanceTag
+    {
+        Master,
+        Best,
+        Recent,
+        Received,
+        Sent
+    }
 
-            //void (*create_privkey)(void *opdata, const char *accountname, const char *protocol);
-            /// <summary>
-            ///  Create a private key for the given accountname/protocol if
-            /// desired.
-            /// </summary>
-            IntPtr CreatePrivateKey;
+    public enum OtrlFragmentPolicy {
+        Skip,
+        All,
+        AllButFirst,
+        AllButLast
+    }
 
-            //int (*is_logged_in)(void *opdata, const char *accountname, const char *protocol, const char *recipient);
-            /// <summary>
-            /// Report whether you think the given user is online.  Return 1 if
-            /// you think he is, 0 if you think he isn't, -1 if you're not sure.
-            ///
-            /// If you return 1, messages such as heartbeats or other
-            /// notifications may be sent to the user, which could result in "not
-            /// logged in" errors if you're wrong.
-            /// </summary>
-            IntPtr IsLoggedIn;
+    public enum OtrlPolicy
+    {
+        AllowVersion1 = 0x01,
+        AllowVersion2 = 0x02,
+        AllowVersion3 = 0x04,
+        RequireEncryption = 0x08,
+        SendWhitespaceTag = 0x10,
+        WhitespaceStartAke = 0x20,
+        ErrorStartAke = 0x40,
+        VersionMask = AllowVersion1 | AllowVersion2 | AllowVersion3,
+        Never = 0x00,
+        Opportunistic = AllowVersion2 | AllowVersion3 | SendWhitespaceTag | WhitespaceStartAke | ErrorStartAke,
+        Manual = AllowVersion2 | AllowVersion3,
+        Always = AllowVersion2 | AllowVersion3 | RequireEncryption | WhitespaceStartAke | ErrorStartAke,
+        Default = Opportunistic
+    };
 
-            //void (*inject_message)(void *opdata, const char *accountname, const char *protocol, const char *recipient, const char *message);
-            /// <summary>
-            /// Send the given IM to the given recipient from the given
-            /// accountname/protocol.
-            /// </summary>
-            IntPtr InjectMessage;
+    public enum OtrlSMPEvent
+    {
+        None,
+        Error,
+        Abort,
+        Cheated,
+        AskForAnswer,
+        AskForSecret,
+        InProgress,
+        Success,
+        Failure
+    };
 
-            //void (*update_context_list)(void *opdata);
-            /// <summary>
-            /// When the list of ConnContexts changes (including a change in
-            /// state), this is called so the UI can be updated.
-            /// </summary>
-            IntPtr UpdateContextList;
+    public enum OtrlMessageEvent
+    {
+        None,
+        EncryptionRequired,
+        EncryptionError,
+        ConnectionEnded,
+        SetupError,
+        MessageReflected,
+        MessageResent,
+        ReceivedMessageNotInPrivate,
+        ReceivedMessageUnreadable,
+        ReceivedMessageMalformed,
+        LogHeartbeatReceived,
+        LogHeartbeatSent,
+        ReceivedMessageGeneralError,
+        ReceivedMessageUnencrypted,
+        ReceivedMessageUnrecognized,
+        ReceivedMessageForOtherInstance
+    };
 
-            //void (*new_fingerprint)(void *opdata, OtrlUserState us, const char *accountname, const char *protocol, const char *username, unsigned char fingerprint[20]);
-            /// <summary>
-            /// A new fingerprint for the given user has been received.
-            /// </summary>
-            IntPtr NewFingerprint;
+    public enum OtrlConvertType
+    {
+        Sending,
+        Receiving
+    };
 
-            //void (*write_fingerprints)(void *opdata);
-            /// <summary>
-            /// The list of known fingerprints has changed.  Write them to disk.
-            /// </summary>
-            IntPtr WriteFingerprints;
+    public enum gcry_error_t : int
+    {
+    }
 
-            //void (*gone_secure)(void *opdata, ConnContext *context);
-            /// <summary>
-            /// A ConnContext has entered a secure state.
-            /// </summary>
-            IntPtr GoneSecure;
+    public enum OtrlMessageState
+    {
+        /// <summary>
+        /// Not yet started an encrypted encryption.
+        /// </summary>
+        Plaintext,
+        /// <summary>
+        /// Currently in an encrypted conversation.
+        /// </summary>
+        Encrypted,
+        /// <summary>
+        /// The remote side has sent us a notification that he has
+        /// ended his end of the encrypted conversation; prevent any
+        /// further messages from being sent to him.
+        /// </summary>
+        Finished
+    };
 
-            //void (*gone_insecure)(void *opdata, ConnContext *context);
-            /// <summary>
-            /// A ConnContext has left a secure state.
-            /// </summary>
-            IntPtr GoneInsecure;
+    public enum OtrlAuthState {
+        None,
+        AwaitingDHKey,
+        AwaitingRevealSIG,
+        AwaitingSIG,
+        V1Setup
+    };
 
-            //void (*still_secure)(void *opdata, ConnContext *context, int is_reply);
-            /// <summary>
-            /// We have completed an authentication, using the D-H keys we
-            /// already knew.  is_reply indicates whether we initiated the AKE.
-            /// </summary>
-            IntPtr StillSecure;
+    // src/mpi.h:65
+    public struct gcry_mpi
+    {
+        int alloced;
+        int nlimbs;
+        int sign;
 
-            //int (*max_message_size)(void *opdata, ConnContext *context);
-            /// <summary>
-            /// Find the maximum message size supported by this protocol. */
-            /// </summary>
-            IntPtr MaxMessageSize;
+        uint flags;
 
-            //const char *(*account_name)(void *opdata, const char *account, const char *protocol);
-            /// <summary>
-            /// Return a newly allocated string containing a human-friendly
-            /// representation for the given account
-            /// </summary>
-            IntPtr AccountName;
+        // TODO: this is of type mpi_limit_t
+        // but thank god we dont need to implement it
+        // until it is really relevant (the rabbit hole was already
+        // deep enough as it is)
+        IntPtr d;
+    };
 
-            //void (*account_name_free)(void *opdata, const char *account_name);
-            /// <summary>
-            /// Deallocate a string returned by account_name
-            /// </summary>
-            IntPtr AccountNameFree;
+    public struct DH_keypair {
+        public int groupid;
+        public gcry_mpi priv;
+        public gcry_mpi pub;
+    };
 
-            //void (*received_symkey)(void *opdata, ConnContext *context, unsigned int use, const unsigned char *usedata, size_t usedatalen, const unsigned char *symkey);
-            /// <summary>
-            /// We received a request from the buddy to use the current "extra"
-            /// symmetric key.  The key will be passed in symkey, of length
-            /// OTRL_EXTRAKEY_BYTES.  The requested use, as well as use-specific
-            /// data will be passed so that the applications can communicate other
-            /// information (some id for the data transfer, for example). */
-            /// </summary>
-            IntPtr ReceivedSymkey;
+    unsafe public static class OtrApi
+    {
+        public struct OtrlAuthInfo
+        {
+            public OtrlAuthState authstate;
+            public context* context;
 
-            //const char *(*otr_error_message)(void *opdata, ConnContext *context, OtrlErrorCode err_code);
-            /// <summary>
-            /// Return a string according to the error event. This string will then
-            /// be concatenated to an OTR header to produce an OTR protocol error
-            /// message. The following are the possible error events:
-            /// - OTRL_ERRCODE_ENCRYPTION_ERROR
-            ///      occured while encrypting a message
-            /// - OTRL_ERRCODE_MSG_NOT_IN_PRIVATE
-            ///      sent encrypted message to somebody who is not in
-            ///      a mutual OTR session
-            /// - OTRL_ERRCODE_MSG_UNREADABLE
-            ///      sent an unreadable encrypted message
-            /// - OTRL_ERRCODE_MSG_MALFORMED
-            ///      message sent is malformed
-            /// </summary>
-            IntPtr OtrErrorMessage;
+            public DH_keypair our_dh;
+            public uint our_keyid;
 
-            //void (*otr_error_message_free)(void *opdata, const char *err_msg);
-            /// <summary>
-            /// Deallocate a string returned by otr_error_message
-            /// </summary>
-            IntPtr OtrErrorMessageFree;
+            public sbyte* encgx;
+            public IntPtr encgx_len;
+            public fixed byte r[16];
 
-            //const char *(*resent_msg_prefix)(void *opdata, ConnContext *context);
-            /// <summary>
-            /// Return a string that will be prefixed to any resent message. If this
-            /// function is not provided by the application then the default prefix,
-            /// "[resent]", will be used.
-            /// </summary>
-            IntPtr ResentMessagePrefix;
+            public fixed byte hashgx[32];
 
-            //void (*resent_msg_prefix_free)(void *opdata, const char *prefix);
-            /// <summary>
-            /// Deallocate a string returned by resent_msg_prefix
-            /// </summary>
-            IntPtr ResentMessagePrefixFree;
+            public gcry_mpi their_pub;
+            public uint their_keyid;
+        }
 
-            //void (*handle_smp_event)(void *opdata, OtrlSMPEvent smp_event, ConnContext *context, unsigned short progress_percent, char *question);
+        public struct s_fingerprint {
             /// <summary>
-            /// Update the authentication UI with respect to SMP events
-            /// These are the possible events:
-            /// - OTRL_SMPEVENT_ASK_FOR_SECRET
-            ///      prompt the user to enter a shared secret. The sender application
-            ///      should call otrl_message_initiate_smp, passing NULL as the question.
-            ///      When the receiver application resumes the SM protocol by calling
-            ///      otrl_message_respond_smp with the secret answer.
-            /// - OTRL_SMPEVENT_ASK_FOR_ANSWER
-            ///      (same as OTRL_SMPEVENT_ASK_FOR_SECRET but sender calls
-            ///      otrl_message_initiate_smp_q instead)
-            /// - OTRL_SMPEVENT_CHEATED
-            ///      abort the current auth and update the auth progress dialog
-            ///      with progress_percent. otrl_message_abort_smp should be called to
-            ///      stop the SM protocol.
-            /// - OTRL_SMPEVENT_INPROGRESS   and
-            ///   OTRL_SMPEVENT_SUCCESS      and
-            ///   OTRL_SMPEVENT_FAILURE      and
-            ///   OTRL_SMPEVENT_ABORT
-            ///      update the auth progress dialog with progress_percent
-            /// - OTRL_SMPEVENT_ERROR
-            ///      (same as OTRL_SMPEVENT_CHEATED)
+            /// The next fingerprint in the list
             /// </summary>
-            IntPtr HandleSmpEvent;
+            public IntPtr next;
+            /// <summary>
+            /// A pointer to the pointer to us
+            /// </summary>
+            public IntPtr tous;
+            /// <summary>
+            /// The fingerprint, or NULL
+            /// </summary>
+            public byte* fingerprint;
+            /// <summary>
+            /// The context to which we belong
+            /// </summary>
+            public context* context;
+            /// <summary>
+            /// The trust level of the fingerprint
+            /// </summary>
+            public sbyte* trust;
+        };
 
-            //void (*handle_msg_event)(void *opdata, OtrlMessageEvent msg_event, ConnContext *context, const char *message, gcry_error_t err);
-            /// <summary>
-            /// Handle and send the appropriate message(s) to the sender/recipient
-            /// depending on the message events. All the events only require an opdata,
-            /// the event, and the context. The message and err will be NULL except for
-            /// some events (see below). The possible events are:
-            /// - OTRL_MSGEVENT_ENCRYPTION_REQUIRED
-            ///      Our policy requires encryption but we are trying to send
-            ///      an unencrypted message out.
-            /// - OTRL_MSGEVENT_ENCRYPTION_ERROR
-            ///      An error occured while encrypting a message and the message
-            ///      was not sent.
-            /// - OTRL_MSGEVENT_CONNECTION_ENDED
-            ///      Message has not been sent because our buddy has ended the
-            ///      private conversation. We should either close the connection,
-            ///      or refresh it.
-            /// - OTRL_MSGEVENT_SETUP_ERROR
-            ///      A private conversation could not be set up. A gcry_error_t
-            ///      will be passed.
-            /// - OTRL_MSGEVENT_MSG_REFLECTED
-            ///      Received our own OTR messages.
-            /// - OTRL_MSGEVENT_MSG_RESENT
-            ///      The previous message was resent.
-            /// - OTRL_MSGEVENT_RCVDMSG_NOT_IN_PRIVATE
-            ///      Received an encrypted message but cannot read
-            ///      it because no private connection is established yet.
-            /// - OTRL_MSGEVENT_RCVDMSG_UNREADABLE
-            ///      Cannot read the received message.
-            /// - OTRL_MSGEVENT_RCVDMSG_MALFORMED
-            ///      The message received contains malformed data.
-            /// - OTRL_MSGEVENT_LOG_HEARTBEAT_RCVD
-            ///      Received a heartbeat.
-            /// - OTRL_MSGEVENT_LOG_HEARTBEAT_SENT
-            ///      Sent a heartbeat.
-            /// - OTRL_MSGEVENT_RCVDMSG_GENERAL_ERR
-            ///      Received a general OTR error. The argument 'message' will
-            ///      also be passed and it will contain the OTR error message.
-            /// - OTRL_MSGEVENT_RCVDMSG_UNENCRYPTED
-            ///      Received an unencrypted message. The argument 'message' will
-            ///      also be passed and it will contain the plaintext message.
-            /// - OTRL_MSGEVENT_RCVDMSG_UNRECOGNIZED
-            ///      Cannot recognize the type of OTR message received.
-            /// - OTRL_MSGEVENT_RCVDMSG_FOR_OTHER_INSTANCE
-            ///      Received and discarded a message intended for another instance. */
-            /// </summary>
-            IntPtr HandleMessageEvent;
+        public struct context
+        {
+            public IntPtr next;
+            public IntPtr tous;
 
-            //void (*create_instag)(void *opdata, const char *accountname, const char *protocol);
-            /// <summary>
-            /// Create a instance tag for the given accountname/protocol if
-            /// desired.
-            /// </summary>
-            IntPtr CreateInstanceTag;
+            public IntPtr context_priv;
 
-            //void (*convert_msg)(void *opdata, ConnContext *context, OtrlConvertType convert_type, char ** dest, const char *src);
-            /// <summary>
-            /// Called immediately before a data message is encrypted, and after a data
-            /// message is decrypted. The OtrlConvertType parameter has the value
-            /// OTRL_CONVERT_SENDING or OTRL_CONVERT_RECEIVING to differentiate these
-            /// cases.
-            /// </summary>
-            IntPtr ConvertMessage;
+            public sbyte* username;
+            public sbyte* accountname;
+            public sbyte* protocol;
 
-            //void (*convert_free)(void *opdata, ConnContext *context, char *dest);
-            /// <summary>
-            /// Deallocate a string returned by convert_msg. */
-            /// </summary>
-            IntPtr ConvertMessageFree;
+            // the followign IntPtrs are all contexts
+
+            public IntPtr m_context;
+            public IntPtr recent_rcvd_child;
+            public IntPtr recent_sent_child;
+            public IntPtr recent_child;
+
+            public InstanceTag our_instance;
+            public InstanceTag their_instance;
+
+            public OtrlMessageState msgstate;
+
+            public OtrlAuthInfo auth;
+
+            public s_fingerprint fingerprint_auth;
+            public s_fingerprint *active_fingerprint;
+
+            public fixed byte sessionid[20];
+            public IntPtr sessionid_len;
+
+            public OtrlSessionIdHalf sessionid_half;
+            public uint protocol_version;
 
             /// <summary>
-            /// When timer_control is called, turn off any existing periodic
-            /// timer.
-            /// 
-            /// Additionally, if interval > 0, set a new periodic timer
-            /// to go off every interval seconds.  When that timer fires, you
-            /// must call otrl_message_poll(userstate, uiops, uiopdata); from the
-            /// main libotr thread.
-            /// 
-            /// The timing does not have to be exact; this timer is used to
-            /// provide forward secrecy by cleaning up stale private state that
-            /// may otherwise stick around in memory.  Note that the
-            /// timer_control callback may be invoked from otrl_message_poll
-            /// itself, possibly to indicate that interval == 0 (that is, that
-            /// there's no more periodic work to be done at this time).
-            /// 
-            /// If you set this callback to NULL, then you must ensure that your
-            /// application calls otrl_message_poll(userstate, uiops, uiopdata);
-            ///  from the main libotr thread every definterval seconds (where
-            /// definterval can be obtained by calling
-            /// definterval = otrl_message_poll_get_default_interval(userstate);
-            /// right after creating the userstate).  The advantage of
-            /// implementing the timer_control callback is that the timer can be
-            /// turned on by libotr only when it's needed.
-            /// 
-            /// It is not a problem (except for a minor performance hit) to call
-            /// otrl_message_poll more often than requested, whether
-            /// timer_control is implemented or not.
-            /// 
-            /// If you fail to implement the timer_control callback, and also
-            /// fail to periodically call otrl_message_poll, then you open your
-            /// users to a possible forward secrecy violation: an attacker that
-            /// compromises the user's computer may be able to decrypt a handful
-            /// of long-past messages (the first messages of an OTR
-            /// conversation).
+            /// Has this correspondent repsponded to our OTR offers?
             /// </summary>
-            //void (*timer_control)(void *opdata, unsigned int interval);
-            IntPtr TimerControl;
+            public OtrOffer offer;
+
+            /// <summary>
+            /// Application data to be associated with this context
+            /// </summary>
+            public IntPtr app_data;
+            /// <summary>
+            /// A function to free the above data when we forget this context
+            /// </summary>
+            public IntPtr app_data_free;
+
+            // TODO: this has a type, i'm too lazyu now to type everything out
+            public IntPtr smstate;
+        }
+
+        public enum OtrOffer {
+            Not,
+            Sent,
+            Rejected,
+            Accepted
+        };
+
+        public struct OtrlSessionIdHalf
+        {
+
+        };
+
+        public delegate OtrlPolicy policy(IntPtr opdata, IntPtr context);
+        public delegate void create_privkey(IntPtr opdata, sbyte* accountname, sbyte* protocol);
+        public delegate int is_logged_in(IntPtr opdata, sbyte* accountname, sbyte* protocol, sbyte* recipient);
+        public delegate void inject_message(IntPtr opdata, sbyte* accountname, sbyte* protocol, sbyte* recipient, sbyte* message);
+        public delegate void update_context_list(IntPtr opdata);
+        public delegate void new_fingerprint(IntPtr opdata, IntPtr us, sbyte* accountname, sbyte* protocol, sbyte* username, sbyte* fingerprint);
+        public delegate void write_fingerprints(IntPtr opdata);
+        public delegate void gone_secure(IntPtr opdata, IntPtr context);
+        public delegate void gone_insecure(IntPtr opdata, IntPtr context);
+        public delegate void still_secure(IntPtr opdata, IntPtr context, int is_reply);
+        public delegate int max_message_size(IntPtr opdata, IntPtr context);
+        public delegate sbyte* account_name(IntPtr opdata, sbyte* account, sbyte* protocol);
+        public delegate void account_name_free(IntPtr opdata, sbyte* account_name);
+        public delegate void received_symkey(IntPtr opdata, IntPtr context, uint use, byte* usedata, UIntPtr usedatalen, byte* symkey);
+        public delegate sbyte* otr_error_message(IntPtr opdata, IntPtr context, OtrlErrorCode err_code);
+        public delegate void otr_error_message_free(IntPtr opdata, sbyte* err_msg);
+        public delegate sbyte* resent_msg_prefix(IntPtr opdata, IntPtr context);
+        public delegate sbyte* resent_msg_prefix_free(IntPtr opdata, sbyte* prefix);
+        public delegate void handle_smp_event(IntPtr opdata, OtrlSMPEvent smp_event, IntPtr context, ushort progress_percent, sbyte* question);
+        public delegate void handle_msg_event(IntPtr opdata, OtrlMessageEvent msg_event, IntPtr context, sbyte* message, gcry_error_t err);
+        public delegate void create_instag(IntPtr opdata, sbyte* accountname, sbyte* protocol);
+        public delegate void convert_msg(IntPtr opdata, IntPtr context, OtrlConvertType convert_type, sbyte** dest, sbyte* src);
+        public delegate void convert_free(IntPtr opdata, IntPtr context, sbyte* dest);
+        public delegate void timer_control(IntPtr opdata, uint interval);
+
+        public struct ManagedOtrlMessageAppOps
+        {
+            public policy policy;
+            public create_privkey create_privkey;
+            public is_logged_in is_logged_in;
+            public inject_message inject_message;
+            public update_context_list update_context_list;
+            public new_fingerprint new_fingerprint;
+            public write_fingerprints write_fingerprints;
+            public gone_secure gone_secure;
+            public gone_insecure gone_insecure;
+            public still_secure still_secure;
+            public max_message_size max_message_size;
+            public account_name account_name;
+            public account_name_free account_name_free;
+            public received_symkey received_symkey;
+            public otr_error_message otr_error_message;
+            public otr_error_message_free otr_error_message_free;
+            public resent_msg_prefix resent_msg_prefix;
+            public resent_msg_prefix_free resent_msg_prefix_free;
+            public handle_smp_event handle_smp_event;
+            public handle_msg_event handle_msg_event;
+            public create_instag create_instag;
+            public convert_msg convert_msg;
+            public convert_free convert_free;
+            public timer_control timer_control;
+        }
+
+        public struct OtrlMessageAppOps
+        {
+            public IntPtr policy;
+            public IntPtr create_privkey;
+            public IntPtr is_logged_in;
+            public IntPtr inject_message;
+            public IntPtr update_context_list;
+            public IntPtr new_fingerprint;
+            public IntPtr write_fingerprints;
+            public IntPtr gone_secure;
+            public IntPtr gone_insecure;
+            public IntPtr still_secure;
+            public IntPtr max_message_size;
+            public IntPtr account_name;
+            public IntPtr account_name_free;
+            public IntPtr received_symkey;
+            public IntPtr otr_error_message;
+            public IntPtr otr_error_message_free;
+            public IntPtr resent_msg_prefix;
+            public IntPtr resent_msg_prefix_free;
+            public IntPtr handle_smp_event;
+            public IntPtr handle_msg_event;
+            public IntPtr create_instag;
+            public IntPtr convert_msg;
+            public IntPtr convert_free;
+            public IntPtr timer_control;
         }
 
         public struct OtrlTLV
         {
             //unsigned short type;
-            ushort Type;
+            public ushort Type;
             //unsigned short len;
-            ushort Length;
+            public ushort Length;
             //unsigned char *data;
-            IntPtr Data;
+            public IntPtr Data;
             //struct s_OtrlTLV *next;
-            IntPtr Next;
+            public IntPtr Next;
         }
 
 
@@ -297,16 +335,25 @@ namespace Otr
 		[DllImport("libotr.so.5")]
 		public static extern void otrl_message_free(IntPtr message);
 
-		// int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops, void *opdata,
-		//   const char *accountname, const char *protocol, const char *sender, const char *message, char **newmessagep,
-		//   OtrlTLV **tlvsp, ConnContext **contextp, void (*add_appdata)(void *data, ConnContext *context), void *data);
-        /*
+        // int otrl_message_receiving(OtrlUserState us, const OtrlMessageAppOps *ops, void *opdata,
+        //   const char *accountname, const char *protocol, const char *sender, const char *message, char **newmessagep,
+        //   OtrlTLV **tlvsp, ConnContext **contextp, void (*add_appdata)(void *data, ConnContext *context), void *data);
+
         [DllImport("libotr.so.5")]
         public static extern int otrl_message_receiving(
-            IntPtr userState, IntPtr messageAppOps, IntPtr opData,
-            string accountName, string protocol, string sender, string message,
-            );
-        */
+            IntPtr userState,
+            ref OtrlMessageAppOps messageAppOps,
+            IntPtr opData,
+            string accountName,
+            string protocol,
+            string sender,
+            string message,
+            out IntPtr newmessagep,
+            IntPtr tlvsp,
+            out IntPtr contextp,
+            add_app_data add_app_data,
+            IntPtr data
+        );
 
 		// void otrl_message_disconnect(OtrlUserState us, const OtrlMessageAppOps *ops,
 		// 	void *opdata, const char *accountname, const char *protocol,
@@ -390,5 +437,169 @@ namespace Otr
  * needs to be non-const.) */
         //OtrlTLV *otrl_tlv_find(OtrlTLV *tlvs, unsigned short type);
 #endregion
-	}
+
+        /* Read a sets of private DSA keys from a file on disk into the given
+ * OtrlUserState. */
+        //gcry_error_t otrl_privkey_read(OtrlUserState us, const char *filename)
+
+        #region privkey
+
+        public static readonly int OTRL_PRIVKEY_FPRINT_HUMAN_LEN = 45 - 1;
+
+        [DllImport("libotr.so.5")]
+        public static extern IntPtr otrl_privkey_fingerprint(IntPtr us, IntPtr fingerprint, string accountname, string protocol);
+
+        [DllImport("libotr.so.5")]
+        public static extern IntPtr otrl_privkey_fingerprint_raw(IntPtr us, IntPtr hash, string accountname, string protocol);
+
+        [DllImport("libotr.so.5")]
+        public static extern IntPtr otrl_privkey_hash_to_human(IntPtr human, IntPtr hash);
+
+        [DllImport("libotr.so.5")]
+        public static extern int otrl_privkey_read(IntPtr us, string filename);
+
+        //gcry_error_t otrl_privkey_generate(OtrlUserState us, const char *filename,
+        //            const char *accountname, const char *protocol)
+
+        [DllImport("libotr.so.5")]
+        public static extern int otrl_privkey_generate(IntPtr us, string filename, string accountname, string protocol);
+
+        [DllImport("libotr.so.5")]
+        public static extern int otrl_privkey_generate_start(IntPtr us, string accountname, string protocol, out IntPtr newkeyp);
+
+        [DllImport("libotr.so.5")]
+        public static extern int otrl_privkey_generate_calculate(IntPtr newkeyp);
+
+        [DllImport("libotr.so.5")]
+        public static extern int otrl_privkey_write_fingerprints(IntPtr us, string filename);
+
+        public delegate void add_app_data(IntPtr data, IntPtr ConnContext);
+
+        //gcry_error_t otrl_privkey_read_fingerprints(OtrlUserState us,
+        //    const char *filename,
+        //    void (*add_app_data)(void *data, ConnContext *context),
+        //    void  *data)
+        [DllImport("libotr.so.5")]
+        public static extern int otrl_privkey_read_fingerprints(IntPtr us, string filename, add_app_data add_app_data, IntPtr data);
+
+        #endregion
+
+        /*
+            OtrlUserState us
+            const OtrlMessageAppOps *ops
+            void *opdata
+            const char *accountname
+            const char *protocol
+            const char *sender
+            const char *message
+            char **newmessagep
+            OtrlTLV **tlvsp
+            ConnContext **contextp
+            void (*add_appdata)(void *data, ConnContext *context),
+            void *data);
+        */
+
+        /*
+            OtrlUserState us,
+            const OtrlMessageAppOps *ops,
+            void *opdata
+            const char *accountname
+            const char *protocol
+            const char *recipient
+            otrl_instag_t instag
+            const char *original_msg
+            OtrlTLV *tlvs
+            char **messagep
+            OtrlFragmentPolicy fragPolicy
+            ConnContext **contextp
+            void (*add_appdata)(void *data, ConnContext *context)
+            void *data
+        */
+        /*
+        gcry_error_t otrl_message_sending(OtrlUserState us,
+            const OtrlMessageAppOps *ops,
+            void *opdata, const char *accountname, const char *protocol,
+            const char *recipient, otrl_instag_t instag, const char *original_msg,
+            OtrlTLV *tlvs, char **messagep, OtrlFragmentPolicy fragPolicy,
+            ConnContext **contextp,
+            void (*add_appdata)(void *data, ConnContext *context),
+            void *data);
+        */
+
+        [DllImport("libotr.so.5")]
+        unsafe public static extern int otrl_message_sending(
+            IntPtr us,
+            ref OtrlMessageAppOps ops,
+            IntPtr opdata,
+            string accountname,
+            string protocol,
+            string recipient,
+            InstanceTag instag,
+            string original_msg,
+            //ref OtrlTLV tlvs,
+            IntPtr tlvs,
+            out IntPtr messagep,
+            OtrlFragmentPolicy fragPolicy,
+            //ref IntPtr contextp,
+            out IntPtr contextp,
+            add_app_data add_app_data,
+            IntPtr data
+        );
+
+        [DllImport("libotr.so.5")]
+        unsafe public static extern sbyte* otrl_version();
+
+        [DllImport("libotr.so.5")]
+        unsafe public static extern int otrl_init(uint ver_major, uint ver_minor, uint ver_sub);
+
+        [DllImport("__Internal")]
+        unsafe public static extern int printf(IntPtr ptr);
+
+        [DllImport("__Internal")]
+        unsafe public static extern int strlen(IntPtr ptr);
+
+        #region Instance Tags
+
+        [DllImport("libotr.so.5")]
+        unsafe public static extern int otrl_instag_generate(IntPtr us, string filename, string accountname, string protocol);
+
+        [DllImport("libotr.so.5")]
+        unsafe public static extern int otrl_instag_write(IntPtr us, string filename);
+
+        [DllImport("libotr.so.5")]
+        unsafe public static extern int otrl_instag_read(IntPtr us, string filename);
+
+        #endregion
+
+        #region Query
+
+        [DllImport("libotr.so.5")]
+        unsafe public static extern sbyte* otrl_proto_default_query_msg(string ourname, OtrlPolicy policy);
+
+        [DllImport("libotr.so.5")]
+        unsafe public static extern int otrl_proto_query_bestversion(string querymsg, OtrlPolicy policy);
+
+        #endregion
+    }
+
+
+    /*
+    #define OTRL_INSTAG_MASTER 0
+    #define OTRL_INSTAG_BEST 1 /* Most secure, based on: conv status,
+    #define OTRL_INSTAG_RECENT 2
+    #define OTRL_INSTAG_RECENT_RECEIVED 3
+    #define OTRL_INSTAG_RECENT_SENT 4
+    */
+
+
+    class GCryptApi
+    {
+        [DllImport("gcrypt.so.11")]
+        unsafe public static extern sbyte* gcry_strerror(int errorCode);
+
+        unsafe public static string MessageFromErrorCode(int errorCode)
+        {
+            return new string(gcry_strerror(errorCode));
+        }
+    }
 }
