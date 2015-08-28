@@ -38,6 +38,8 @@ namespace Test
             GenerateKey(us2, "us2", protocol, "us2");
             us2.ReadFingerprints("us2.fingerprints");
 
+            // this generates an initial packet, it has like 32 whitespaces:
+            // 0x2092020999920920920920202020992020920202099202099
             var message1 = us1.MessageSending("us1", protocol, "us2", "");
 
             us1.InjectMessage += (sender, events) => us2.MessageReceiving(events);
